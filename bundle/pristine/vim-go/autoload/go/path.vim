@@ -121,13 +121,14 @@ endfunction
 
 " BinPath returns the binary path of installed go tools.
 function! go#path#BinPath() abort
-  let bin_path = ""
+  let bin_path = go#config#BinPath()
+  if bin_path != ""
+    return bin_path
+  endif
 
   " check if our global custom path is set, if not check if $GOBIN is set so
   " we can use it, otherwise use default GOPATH
-  if exists("g:go_bin_path")
-    let bin_path = g:go_bin_path
-  elseif $GOBIN != ""
+  if $GOBIN != ""
     let bin_path = $GOBIN
   else
     let go_paths = split(go#path#Default(), go#util#PathListSep())
@@ -141,11 +142,13 @@ function! go#path#BinPath() abort
 endfunction
 
 " CheckBinPath checks whether the given binary exists or not and returns the
-" path of the binary. It returns an empty string doesn't exists.
+" path of the binary, respecting the go_bin_path and go_search_bin_path_first
+" settings. It returns an empty string if the binary doesn't exist.
 function! go#path#CheckBinPath(binpath) abort
   " remove whitespaces if user applied something like 'goimports   '
   let binpath = substitute(a:binpath, '^\s*\(.\{-}\)\s*$', '\1', '')
-  " save off original path
+
+  " save original path
   let old_path = $PATH
 
   " check if we have an appropriate bin_path
@@ -153,7 +156,12 @@ function! go#path#CheckBinPath(binpath) abort
   if !empty(go_bin_path)
     " append our GOBIN and GOPATH paths and be sure they can be found there...
     " let us search in our GOBIN and GOPATH paths
-    let $PATH = go_bin_path . go#util#PathListSep() . $PATH
+    " respect the ordering specified by go_search_bin_path_first
+    if go#config#SearchBinPathFirst()
+      let $PATH = go_bin_path . go#util#PathListSep() . $PATH
+    else
+      let $PATH = $PATH . go#util#PathListSep() . go_bin_path
+    endif
   endif
 
   " if it's in PATH just return it

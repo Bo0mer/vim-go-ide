@@ -26,7 +26,7 @@ function! go#statusline#Show() abort
   " lazy initialiation of the cleaner
   if !s:timer_id
     " clean every 60 seconds all statuses
-    let interval = get(g:, 'go_statusline_duration', 60000)
+    let interval = go#config#StatuslineDuration()
     let s:timer_id = timer_start(interval, function('go#statusline#Clear'), {'repeat': -1})
   endif
 
@@ -54,11 +54,11 @@ function! go#statusline#Show() abort
   " only update highlight if status has changed.
   if status_text != s:last_status
     if status.state =~ "success" || status.state =~ "finished" || status.state =~ "pass"
-      hi goStatusLineColor cterm=bold ctermbg=76 ctermfg=22
+      hi goStatusLineColor cterm=bold ctermbg=76 ctermfg=22 guibg=#5fd700 guifg=#005f00
     elseif status.state =~ "started" || status.state =~ "analysing" || status.state =~ "compiling"
-      hi goStatusLineColor cterm=bold ctermbg=208 ctermfg=88
+      hi goStatusLineColor cterm=bold ctermbg=208 ctermfg=88 guibg=#ff8700 guifg=#870000
     elseif status.state =~ "failed"
-      hi goStatusLineColor cterm=bold ctermbg=196 ctermfg=52
+      hi goStatusLineColor cterm=bold ctermbg=196 ctermfg=52 guibg=#ff0000 guifg=#5f0000
     endif
   endif
 

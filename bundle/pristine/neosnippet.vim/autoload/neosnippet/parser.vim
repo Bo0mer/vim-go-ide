@@ -104,13 +104,14 @@ function! s:parse(snippets_file) abort
             \ a:snippets_file, line, linenr, dup_check)
     elseif !empty(snippet_dict)
       if line =~ '^\s' || line == ''
-        if snippet_dict.word == ''
+        if snippet_dict.word == '' && line =~# '^\t'
           " Substitute head tab character.
           let line = substitute(line, '^\t', '', '')
+        else
+          let line = substitute(line, '^ *', '', '')
         endif
 
-        let snippet_dict.word .=
-              \ substitute(line, '^ *', '', '') . "\n"
+        let snippet_dict.word .= line . "\n"
       else
         call s:add_snippet_attribute(
               \ a:snippets_file, line, linenr, snippet_dict)
@@ -252,11 +253,7 @@ function! neosnippet#parser#_initialize_snippet(dict, path, line, pattern, name)
 
   if !has_key(a:dict, 'abbr') || a:dict.abbr == ''
     " Set default abbr.
-    let abbr = substitute(a:dict.word,
-        \   neosnippet#get_placeholder_marker_pattern(). '\|'.
-        \   neosnippet#get_mirror_placeholder_marker_pattern().
-        \   '\|\s\+\|\n\|TARGET', ' ', 'g')
-    let abbr = substitute(abbr, '\\\(\\\|`\|\$\)', '\1', 'g')
+    let abbr = ''
     let a:dict.abbr = a:dict.name
   else
     let abbr = a:dict.abbr
@@ -446,10 +443,11 @@ endfunction
 function! s:include_snippets(globs) abort
   let snippets = {}
   for glob in a:globs
-      for file in split(globpath(join(
-            \ neosnippet#helpers#get_snippets_directory(), ','), glob), '\n')
-        call extend(snippets, neosnippet#parser#_parse_snippets(file))
-      endfor
+    let snippets_dir = neosnippet#helpers#get_snippets_directory(
+          \ fnamemodify(glob, ':r'))
+    for file in split(globpath(join(snippets_dir, ','), glob), '\n')
+      call extend(snippets, neosnippet#parser#_parse_snippets(file))
+    endfor
   endfor
 
   return snippets

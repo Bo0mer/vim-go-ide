@@ -232,6 +232,7 @@ Most important option:~
 Git:~
 
     |g:gitgutter_git_executable|
+    |g:gitgutter_git_args|
     |g:gitgutter_diff_args|
     |g:gitgutter_diff_base|
 
@@ -252,6 +253,10 @@ Signs:~
     |g:gitgutter_sign_column_always|
     |g:gitgutter_override_sign_column_highlight|
 
+Terminal:~
+
+    |g:gitgutter_terminal_reports_focus|
+
 General:~
 
     |g:gitgutter_enabled|
@@ -265,6 +270,15 @@ Default: 'git'
 
 This option determines what git binary to use.  Set this if git is not on your
 path.
+
+                                                         *g:gitgutter_git_args*
+Default: empty
+
+Use this option to pass any extra arguments to git when running git-diff.
+For example:
+>
+    let g:gitgutter_git_args = '--git-dir=""'
+<
 
                                                         *g:gitgutter_diff_args*
 Default: empty
@@ -365,6 +379,22 @@ it in your |vimrc|:
   User-defined (terminal Vim)         highlight SignColumn ctermbg={whatever}
   User-defined (graphical Vim)        highlight SignColumn guibg={whatever}
 
+
+                                           *g:gitgutter_terminal_reports_focus*
+Default: 1
+
+Normally the plugin uses |FocusGained| to force-update all buffers when Vim
+receives focus.  However some terminals do not report focus events and so the
+|FocusGained| autocommand never fires.
+
+If this applies to you, either install something like Terminus
+(https://github.com/wincent/terminus) to make |FocusGained| work or set this
+option to 0.
+
+When this option is 0, the plugin force-updates the buffer on |BufEnter|
+(instead of only updating if the buffer's contents has changed since the last
+update).
+
                                                           *g:gitgutter_enabled*
 Default: 1
 
@@ -425,19 +455,29 @@ a. How do I turn off realtime updates?
 >
     autocmd! gitgutter CursorHold,CursorHoldI
 <
-b. Why can't I unstage staged changes?
+
+b. I turned off realtime updates, how can I have signs updated when I save a
+   file?
+
+  If you really want to update the signs when you save a file, add this to your
+  |vimrc|:
+>
+    autocmd BufWritePost * GitGutter
+<
+
+c. Why can't I unstage staged changes?
 
   This plugin is for showing changes between the working tree and the index
   (and staging/undoing those changes). Unstaging a staged hunk would require
   showing changes between the index and HEAD, which is out of scope.
 
-c. Why are the colours in the sign column weird?
+d. Why are the colours in the sign column weird?
 
   Your colorscheme is configuring the |hl-SignColumn| highlight group weirdly.
   Please see |g:gitgutter_override_sign_column_highlight| on customising the
   sign column.
 
-d. What happens if I also use another plugin which uses signs (e.g. Syntastic)?
+e. What happens if I also use another plugin which uses signs (e.g. Syntastic)?
 
   Vim only allows one sign per line.  Vim-gitgutter will not interfere with
   signs it did not add.
@@ -486,5 +526,14 @@ When signs take a few seconds to appear:~
 Try reducing 'updatetime':
 >
     set updatetime=100
+<
+
+
+When signs don't update after focusing Vim:~
+
+Your terminal probably isn't reporting focus events.  Either try installing
+Terminus (https://github.com/wincent/terminus) or set:
+>
+    let g:gitgutter_terminal_reports_focus = 0
 <
 

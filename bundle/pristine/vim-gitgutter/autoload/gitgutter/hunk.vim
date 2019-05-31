@@ -93,6 +93,22 @@ function! s:current_hunk() abort
   return current_hunk
 endfunction
 
+" Returns truthy if the cursor is in two hunks (which can only happen if the
+" cursor is on the first line and lines above have been deleted and lines
+" immediately below have been deleted) or falsey otherwise.
+function! s:cursor_in_two_hunks()
+  let hunks = gitgutter#hunk#hunks(bufnr(''))
+
+  if line('.') == 1 && len(hunks) > 1 && hunks[0][2:3] == [0, 0] && hunks[1][2:3] == [1, 0]
+    return 1
+  endif
+
+  return 0
+endfunction
+
+" A line can be in 0 or 1 hunks, with the following exception: when the first
+" line(s) of a file has been deleted, and the new second line (and
+" optionally below) has been deleted, the new first line is in two hunks.
 function! gitgutter#hunk#cursor_in_hunk(hunk) abort
   let current_line = line('.')
 
@@ -151,13 +167,24 @@ function! s:hunk_op(op)
   if gitgutter#utility#is_active(bufnr)
     " Get a (synchronous) diff.
     let [async, g:gitgutter_async] = [g:gitgutter_async, 0]
-    let diff = gitgutter#diff#run_diff(bufnr, 1)
+    let diff = gitgutter#diff#run_diff(bufnr, 'index', 1)
     let g:gitgutter_async = async
 
     call gitgutter#hunk#set_hunks(bufnr, gitgutter#diff#parse_diff(diff))
 
     if empty(s:current_hunk())
       call gitgutter#utility#warn('cursor is not in a hunk')
+    elseif s:cursor_in_two_hunks()
+      let choice = input('Choose hunk: upper or lower (u/l)? ')
+      " Clear input
+      normal! :<ESC>
+      if choice =~ 'u'
+        call a:op(gitgutter#diff#hunk_diff(bufnr, diff, 0))
+      elseif choice =~ 'l'
+        call a:op(gitgutter#diff#hunk_diff(bufnr, diff, 1))
+      else
+        call gitgutter#utility#warn('did not recognise your choice')
+      endif
     else
       call a:op(gitgutter#diff#hunk_diff(bufnr, diff))
     endif
@@ -221,19 +248,34 @@ endfunction
 
 
 function! s:adjust_header(bufnr, hunk_diff)
-  return s:adjust_hunk_summary(s:fix_file_references(a:bufnr, a:hunk_diff))
+  let filepath = gitgutter#utility#repo_path(a:bufnr, 0)
+  return s:adjust_hunk_summary(s:fix_file_references(filepath, a:hunk_diff))
 endfunction
 
 
 " Replaces references to temp files with the actual file.
-function! s:fix_file_references(bufnr, hunk_diff)
-  let filepath = gitgutter#utility#repo_path(a:bufnr, 0)
-  let diff = a:hunk_diff
-  for tmp in matchlist(diff, '\vdiff --git ./(\S+) ./(\S+)\n')[1:2]
-    let diff = substitute(diff, tmp, filepath, 'g')
-  endfor
-  return diff
+function! s:fix_file_references(filepath, hunk_diff)
+  let lines = split(a:hunk_diff, '\n')
+
+  let left_prefix  = matchstr(lines[2], '[abciow12]').'/'
+  let right_prefix = matchstr(lines[3], '[abciow12]').'/'
+  let quote        = lines[0][11] == '"' ? '"' : ''
+
+  let left_file  = quote.left_prefix.a:filepath.quote
+  let right_file = quote.right_prefix.a:filepath.quote
+
+  let lines[0] = 'diff --git '.left_file.' '.right_file
+  let lines[2] = '--- '.left_file
+  let lines[3] = '+++ '.right_file
+
+  return join(lines, "\n")."\n"
 endfunction
+
+if $VIM_GITGUTTER_TEST
+  function! gitgutter#hunk#fix_file_references(filepath, hunk_diff)
+    return s:fix_file_references(a:filepath, a:hunk_diff)
+  endfunction
+endif
 
 
 function! s:adjust_hunk_summary(hunk_diff) abort
